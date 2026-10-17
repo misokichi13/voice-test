@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>音声モニタリング テスト (安全保存版)</title>
+  <title>音声モニタリング テスト (デバッグ版)</title>
   <style>
     body { font-family: sans-serif; margin: 15px; background: #f5f5f5; color: #333; }
     .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; }
@@ -11,24 +11,24 @@
     .status-green { background: #d4edda; color: #155724; }
     .status-yellow { background: #fff3cd; color: #856404; }
     .status-off { background: #e2e3e5; color: #383d41; }
-    button { padding: 10px 16px; font-size: 15px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
+    button { padding: 10px 16px; font-size: 15px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 5px; }
     .btn-on { background: #28a745; color: white; }
     .btn-off { background: #dc3545; color: white; }
     .sec-btn { background: #1a73e8; color: white; width: auto; padding: 6px 12px; font-size: 13px; }
+    .test-btn { background: #6c757d; color: white; }
     input[type="password"] { padding: 8px; width: 100%; box-sizing: border-box; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; margin-bottom: 8px; }
-    #advice-box { font-size: 14px; background: #eef5ff; padding: 10px; border-radius: 6px; border-left: 4px solid #1a73e8; margin-top: 10px; }
+    #advice-box { font-size: 14px; background: #eef5ff; padding: 10px; border-radius: 6px; border-left: 4px solid #1a73e8; margin-top: 10px; white-space: pre-wrap; }
     #transcript-box { height: 120px; overflow-y: scroll; background: #fafafa; border: 1px solid #ccc; padding: 8px; font-size: 12px; border-radius: 4px; margin-top: 10px; }
     .api-key-section { background: #fff8e1; border: 1px solid #ffe0b2; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; }
   </style>
 </head>
 <body>
 
-  <h2>🎤 音声セルフモニタリング テスト</h2>
+  <h2>🎤 音声セルフモニタリング テスト (デバッグ版)</h2>
 
-  <!-- APIキー設定エリア（スマホ内に安全保存） -->
+  <!-- APIキー設定エリア -->
   <div class="api-key-section" id="api-key-card">
-    <div style="font-weight: bold; margin-bottom: 4px;">🔒 Gemini APIキーの設定（スマホ内のみに保存されます）</div>
-    <div style="color: #666; font-size: 12px; margin-bottom: 6px;">コードには書き込まず、この端末のブラウザに安全に記憶させます。</div>
+    <div style="font-weight: bold; margin-bottom: 4px;">🔒 Gemini APIキーの設定</div>
     <input type="password" id="api-key-input" placeholder="AIzaSy... から始まるAPIキーを入力">
     <button onclick="saveApiKey()" class="sec-btn">キーを保存する</button>
     <span id="key-status-text" style="margin-left: 10px; font-size: 12px; color: #28a745; font-weight: bold;"></span>
@@ -43,24 +43,25 @@
   <!-- AIアドバイス表示エリア -->
   <div class="card">
     <h3 style="margin: 0 0 8px 0; font-size: 1rem;">💡 AIコンディショニング・アドバイス</h3>
-    <div id="advice-box">（機能をONにして話しかけると、定期的にここにアドバイスが表示されます）</div>
+    <div id="advice-box">（音声を認識させてから下のボタンを押すか、自動判定をお待ちください）</div>
+    <!-- 待たずに今すぐテストできるボタンを追加 -->
+    <button onclick="analyzeSpeechWithGemini()" class="test-btn">▶ 今すぐAI判定をテスト実行する</button>
   </div>
 
-  <!-- 認識したテキストの表示（確認用） -->
+  <!-- 認識したテキストの表示 -->
   <div class="card">
-    <h4 style="margin: 0 0 5px 0; font-size: 0.85rem; color: #666;">リアルタイム発話ログ（直近の聞き取り）</h4>
+    <h4 style="margin: 0 0 5px 0; font-size: 0.85rem; color: #666;">リアルタイム発話ログ</h4>
     <div id="transcript-box"></div>
   </div>
 
   <script>
-    const EVALUATION_INTERVAL_SEC = 120; // 評価の実行間隔（秒）
+    const EVALUATION_INTERVAL_SEC = 60; // テスト用に60秒（1分）に短縮
 
     let isMonitoring = false;
     let recognition = null;
     let speechBuffer = [];
     let evalTimer = null;
 
-    // 起動時に保存されたAPIキーを読み込む
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('gemini_api_key');
       if (savedKey) {
@@ -77,7 +78,7 @@
       }
       localStorage.setItem('gemini_api_key', key);
       document.getElementById('key-status-text').innerText = "✓ 保存しました！";
-      alert("APIキーをこの端末のブラウザ（localStorage）に安全に保存しました。");
+      alert("APIキーを保存しました。");
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -85,7 +86,7 @@
     function toggleMonitoring() {
       const savedKey = localStorage.getItem('gemini_api_key');
       if (!savedKey) {
-        alert("先に上部の入力欄にGemini APIキーを入力して「保存する」を押してください。");
+        alert("先にGemini APIキーを入力して保存してください。");
         return;
       }
 
@@ -98,7 +99,7 @@
 
     function startMonitoring() {
       if (!SpeechRecognition) {
-        alert("お使いのブラウザは音声認識に対応していません。（iOS Safariをご利用ください）");
+        alert("お使いのブラウザは音声認識に対応していません。");
         return;
       }
 
@@ -168,17 +169,24 @@
     }
 
     async function analyzeSpeechWithGemini() {
-      if (speechBuffer.length === 0) return;
+      const apiKey = localStorage.getItem('gemini_api_key');
+      if (!apiKey) {
+        alert("APIキーが保存されていません。");
+        return;
+      }
 
-      const recentText = speechBuffer.join("\n");
+      // テスト用に、バッファが空でも「テスト用の発話です」と送れるようにする
+      const textToAnalyze = speechBuffer.length > 0 ? speechBuffer.join("\n") : "[テスト発話] こんばんは、今日の配信も調子よくいきたいと思います。よろしくお願いします。";
+      
+      // テスト実行時はバッファをクリアしすぎないように残す
+      const recentText = textToAnalyze;
       speechBuffer = [];
 
-      const apiKey = localStorage.getItem('gemini_api_key');
-      if (!apiKey) return;
+      document.getElementById("advice-box").innerText = "AIに問い合わせ中...";
 
       const prompt = `
 あなたはゲーム配信者のセルフコンディショニングAIアシスタントです。
-以下は配信者が過去数分間に喋った発話内容の書き起こしです。
+以下は配信者が話した発話内容の書き起こしです。
 言語の乱れ、思考の言いよどみ、同じ言葉の極端な繰り返し、疲労や焦りの兆候がないか簡単に分析してください。
 
 【発話ログ】
@@ -191,7 +199,8 @@ ${recentText}
 `;
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        // より安定した gemini-1.5-flash エンドポイントを使用
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -201,6 +210,11 @@ ${recentText}
         });
 
         const data = await res.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message || "APIエラー");
+        }
+
         if (data.candidates && data.candidates[0].content.parts[0].text) {
           const resultText = data.candidates[0].content.parts[0].text;
           document.getElementById("advice-box").innerText = resultText;
@@ -212,9 +226,12 @@ ${recentText}
           } else {
             updateStatusBadge("緑", "トーク順調！");
           }
+        } else {
+          throw new Error("AIからの応答形式が予期せぬものです。");
         }
       } catch (err) {
         console.error("Gemini解析エラー:", err);
+        document.getElementById("advice-box").innerText = "エラー発生: " + err.message;
       }
     }
 
