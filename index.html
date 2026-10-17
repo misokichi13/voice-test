@@ -3,32 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>音声モニタリング テスト (カラー対応版)</title>
+  <title>音声モニタリング (統合版)</title>
   <style>
     body { font-family: sans-serif; margin: 15px; background: #f5f5f5; color: #333; }
     .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; }
     
-    /* ステータスバッジの基本スタイル（大きく見やすく） */
-    .status-badge { display: block; text-align: center; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; letter-spacing: 1px; }
-    .status-green { background: #d4edda; color: #155724; border: 2px solid #28a745; }
-    .status-yellow { background: #fff3cd; color: #856404; border: 2px solid #ffc107; }
-    .status-red { background: #f8d7da; color: #721c24; border: 2px solid #dc3545; }
-    .status-off { background: #e2e3e5; color: #383d41; border: 2px solid #6c757d; }
-
-    button { padding: 10px 16px; font-size: 15px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 5px; }
+    button { padding: 12px 16px; font-size: 15px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 5px; }
     .btn-on { background: #28a745; color: white; }
     .btn-off { background: #dc3545; color: white; }
     .sec-btn { background: #1a73e8; color: white; width: auto; padding: 6px 12px; font-size: 13px; }
-    .test-btn { background: #6c757d; color: white; }
+    .test-btn { background: #6c757d; color: white; margin-top: 10px; }
     
     input[type="password"] { padding: 8px; width: 100%; box-sizing: border-box; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; margin-bottom: 8px; }
     
-    /* アドバイスボックス（ステータスに応じて色が変わる） */
-    #advice-box { font-size: 1rem; padding: 12px; border-radius: 6px; margin-top: 10px; white-space: pre-wrap; font-weight: bold; transition: all 0.3s ease; }
-    .advice-default { background: #eef5ff; border-left: 5px solid #1a73e8; color: #333; }
-    .advice-green { background: #d4edda; border-left: 5px solid #28a745; color: #155724; }
-    .advice-yellow { background: #fff3cd; border-left: 5px solid #ffc107; color: #856404; }
-    .advice-red { background: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; }
+    /* AIコンディショニング欄（ここに判定とアドバイスをまとめる） */
+    #advice-box { padding: 15px; border-radius: 8px; margin-top: 10px; transition: all 0.3s ease; }
+    .advice-default { background: #eef5ff; border: 2px solid #b8d5ff; color: #333; }
+    .advice-green { background: #d4edda; border: 2px solid #28a745; color: #155724; }
+    .advice-yellow { background: #fff3cd; border: 2px solid #ffc107; color: #856404; }
+    .advice-red { background: #f8d7da; border: 2px solid #dc3545; color: #721c24; }
+    
+    .advice-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 6px; }
+    .advice-text { font-size: 0.95rem; line-height: 1.4; }
 
     #transcript-box { height: 120px; overflow-y: scroll; background: #fafafa; border: 1px solid #ccc; padding: 8px; font-size: 12px; border-radius: 4px; margin-top: 10px; }
     .api-key-section { background: #fff8e1; border: 1px solid #ffe0b2; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; }
@@ -36,7 +32,7 @@
 </head>
 <body>
 
-  <h2>🎤 音声セルフモニタリング テスト</h2>
+  <h2>🎤 音声セルフモニタリング</h2>
 
   <!-- APIキー設定エリア -->
   <div class="api-key-section" id="api-key-card">
@@ -46,16 +42,18 @@
     <span id="key-status-text" style="margin-left: 10px; font-size: 12px; color: #28a745; font-weight: bold;"></span>
   </div>
 
-  <!-- メインコントロール＆ステータス表示 -->
+  <!-- メインコントロール（ON/OFFボタンのみでシンプルに） -->
   <div class="card">
-    <div id="status-badge" class="status-badge status-off">ステータス: 停止中</div>
-    <button id="toggle-btn" class="btn-on" onclick="toggleMonitoring()">機能を開始する (マイクON)</button>
+    <button id="toggle-btn" class="btn-on" onclick="toggleMonitoring()">音声モニタリングを開始する (マイクON)</button>
   </div>
 
-  <!-- AIアドバイス表示エリア -->
+  <!-- AIコンディショニング・アドバイス（判定結果をここに集約） -->
   <div class="card">
-    <h3 style="margin: 0 0 8px 0; font-size: 1rem;">💡 AIコンディショニング・アドバイス</h3>
-    <div id="advice-box" class="advice-default">（下のボタンを押してAIの動作を確認できます）</div>
+    <h3 style="margin: 0 0 4px 0; font-size: 1rem;">💡 AIコンディショニング</h3>
+    <div id="advice-box" class="advice-default">
+      <div class="advice-title">💤 待機中</div>
+      <div class="advice-text">機能を開始すると、AIが音声コンディションをここに表示します。</div>
+    </div>
     <button onclick="analyzeSpeechWithGemini()" class="test-btn">▶ 今すぐAI判定をテスト実行する</button>
   </div>
 
@@ -67,6 +65,7 @@
 
   <script>
     const EVALUATION_INTERVAL_SEC = 60;
+    const GEMINI_MODEL = "gemini-3.8-flash"; // ご指定の3.8系モデルを指定
 
     let isMonitoring = false;
     let recognition = null;
@@ -152,9 +151,10 @@
         recognition.start();
         isMonitoring = true;
 
-        document.getElementById("toggle-btn").innerText = "機能を停止する (マイクOFF)";
+        document.getElementById("toggle-btn").innerText = "音声モニタリングを停止する (マイクOFF)";
         document.getElementById("toggle-btn").className = "btn-off";
-        updateStatusDisplay("green", "🟢 トーク順調（モニタリング中）");
+        
+        updateAdviceBox("green", "🟢 トーク順調（モニタリング中）", "マイク稼働中です。このままお話しください。");
 
         evalTimer = setInterval(analyzeSpeechWithGemini, EVALUATION_INTERVAL_SEC * 1000);
 
@@ -174,11 +174,10 @@
         evalTimer = null;
       }
 
-      document.getElementById("toggle-btn").innerText = "機能を開始する (マイクON)";
+      document.getElementById("toggle-btn").innerText = "音声モニタリングを開始する (マイクON)";
       document.getElementById("toggle-btn").className = "btn-on";
-      updateStatusDisplay("off", "ステータス: 停止中");
-      document.getElementById("advice-box").className = "advice-default";
-      document.getElementById("advice-box").innerText = "（機能をONにしてテストできます）";
+      
+      updateAdviceBox("default", "💤 停止中", "機能を開始すると、AIが音声コンディションをここに表示します。");
     }
 
     async function analyzeSpeechWithGemini() {
@@ -192,7 +191,7 @@
       const recentText = textToAnalyze;
       speechBuffer = [];
 
-      document.getElementById("advice-box").innerText = "AIがコンディションを分析中...";
+      updateAdviceBox("default", "⏳ 分析中...", "AIが直近の発話をチェックしています...");
 
       const prompt = `
 あなたはゲーム配信者のセルフコンディショニングAIアシスタントです。
@@ -209,7 +208,7 @@ ${recentText}
 `;
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -226,41 +225,41 @@ ${recentText}
 
         if (data.candidates && data.candidates[0].content.parts[0].text) {
           const resultText = data.candidates[0].content.parts[0].text;
-          document.getElementById("advice-box").innerText = resultText;
-
-          // 結果の文字列に応じて色と表示を動的に切り替え
+          
+          // AIの返答からステータスとアドバイスを分かりやすく分解してボックスに反映
           if (resultText.includes("要休憩")) {
-            updateStatusDisplay("red", "🔴 要休憩：少し休みましょう！");
-            document.getElementById("advice-box").className = "advice-red";
+            updateAdviceBox("red", "🔴 要休憩：少し休みましょう！", resultText);
           } else if (resultText.includes("やや疲労")) {
-            updateStatusDisplay("yellow", "🟡 やや疲労：お疲れ気味です");
-            document.getElementById("advice-box").className = "advice-yellow";
+            updateAdviceBox("yellow", "🟡 やや疲労：お疲れ気味です", resultText);
           } else {
-            updateStatusDisplay("green", "🟢 良好：トーク順調です！");
-            document.getElementById("advice-box").className = "advice-green";
+            updateAdviceBox("green", "🟢 良好：トーク順調です！", resultText);
           }
         } else {
           throw new Error("AIからの応答形式が予期せぬものです。");
         }
       } catch (err) {
         console.error("Gemini解析エラー:", err);
-        document.getElementById("advice-box").innerText = "エラー発生: " + err.message;
-        document.getElementById("advice-box").className = "advice-red";
+        updateAdviceBox("red", "❌ エラー発生", err.message);
       }
     }
 
-    function updateStatusDisplay(type, text) {
-      const badge = document.getElementById("status-badge");
-      badge.innerText = text;
-      badge.className = "status-badge";
-      if (type === "green") badge.classList.add("status-green");
-      else if (type === "yellow") badge.classList.add("status-yellow");
-      else if (type === "red") badge.classList.add("status-red");
-      else badge.classList.add("status-off");
+    function updateAdviceBox(type, title, text) {
+      const box = document.getElementById("advice-box");
+      box.className = "card ";
+      
+      if (type === "green") box.classList.add("advice-green");
+      else if (type === "yellow") box.classList.add("advice-yellow");
+      else if (type === "red") box.classList.add("advice-red");
+      else box.classList.add("advice-default");
+
+      box.innerHTML = `
+        <div class="advice-title">${escapeHtml(title)}</div>
+        <div class="advice-text">${escapeHtml(text)}</div>
+      `;
     }
 
     function escapeHtml(str) {
-      return str.replace(/[&'`<>"]/g, match => ({ '&': '&amp;', "'": ''-'&#x27;', '`': '&#x60;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[match]));
+      return str.replace(/[&'`<>"]/g, match => ({ '&': '&amp;', "'": '&#x27;', '`': '&#x60;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[match]));
     }
   </script>
 </body>
