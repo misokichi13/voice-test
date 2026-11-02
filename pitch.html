@@ -146,7 +146,7 @@ function nearestFreq(freq){
 
 var audioCtx = null, analyser = null, micStream = null, running = false;
 var bufArr = null;
-var history = []; // {freq, t}
+var traceHistory = []; // {freq, t}
 var recentFreqs = [];
 var targetFreq = null, targetName = "";
 var holdMs = 0, lastTick = 0, score = 0, solvedCurrent = false;
@@ -244,7 +244,7 @@ function startMic(){
       micBtn.textContent = "⏹ マイクを止める";
       micBtn.classList.add("on");
       micStatus.textContent = "計測中…声を出してみてください。";
-      history = []; recentFreqs = []; lastTick = performance.now();
+      traceHistory = []; recentFreqs = []; lastTick = performance.now();
       requestAnimationFrame(loop);
     })
     .catch(function(err){
@@ -278,8 +278,8 @@ function loop(now){
     recentFreqs = [];
   }
   var t = now / 1000;
-  history.push({ f: dispFreq, t: t });
-  while (history.length && history[0].t < t - 6) history.shift();
+  traceHistory.push({ f: dispFreq, t: t });
+  while (traceHistory.length && traceHistory[0].t < t - 6) traceHistory.shift();
 
   if (dispFreq > 0){
     var lab = noteLabel(dispFreq);
@@ -321,7 +321,7 @@ function drawTrace(nowT){
   var W = canvas.width, H = canvas.height;
   ctx2d.clearRect(0, 0, W, H);
   // 基準線（ドレミの各音）: 表示範囲は現在の履歴の中央あたりに追随
-  var freqs = history.filter(function(h){ return h.f > 0; }).map(function(h){ return h.f; });
+  var freqs = traceHistory.filter(function(h){ return h.f > 0; }).map(function(h){ return h.f; });
   var center = freqs.length ? freqs[freqs.length - 1] : 160;
   var lo = center / Math.pow(2, 7 / 12), hi = center * Math.pow(2, 7 / 12);
   function yOf(f){ return H - (Math.log2(f / lo) / Math.log2(hi / lo)) * H; }
@@ -345,7 +345,7 @@ function drawTrace(nowT){
   ctx2d.lineWidth = 2;
   ctx2d.beginPath();
   var started = false;
-  history.forEach(function(h){
+  traceHistory.forEach(function(h){
     var x = W - (nowT - h.t) / 6 * W;
     if (h.f <= 0){ started = false; return; }
     var y = yOf(h.f);
