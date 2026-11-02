@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ピッチトレーニング | ボイトレ</title>
+<style>
+  :root{
+    --bg:#101418; --card:#1b2129; --line:#2c3644; --text:#eef2f6; --sub:#9fb0c1;
+    --accent:#ffb020; --ok:#35c759; --bad:#ff5a5a; --blue:#4da3ff;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--text);
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    padding:16px 14px 40px; max-width:560px; margin:0 auto;}
+  h1{font-size:22px; margin:4px 0 2px;}
+  .lead{color:var(--sub); font-size:13px; line-height:1.6; margin:0 0 14px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px;}
+  .card h2{font-size:16px; margin:0 0 10px;}
+  button{font-family:inherit; border:none; border-radius:10px; cursor:pointer;}
+  .big-btn{width:100%; padding:16px; font-size:18px; font-weight:700; background:var(--accent); color:#201600;}
+  .big-btn.on{background:var(--bad); color:#fff;}
+  .status{font-size:13px; color:var(--sub); margin-top:8px; min-height:18px;}
+  .note-name{font-size:52px; font-weight:800; text-align:center; line-height:1.1; margin:6px 0 0;}
+  .note-sub{text-align:center; color:var(--sub); font-size:14px; min-height:20px;}
+  canvas{width:100%; height:110px; display:block; background:#0b0e12; border-radius:10px; margin-top:10px;}
+  .gauge-wrap{margin-top:12px;}
+  .gauge{position:relative; height:22px; background:#0b0e12; border-radius:11px; overflow:hidden;}
+  .gauge .zone{position:absolute; top:0; bottom:0; left:calc(50% - 12.5%); width:25%; background:rgba(53,199,89,.35);}
+  .gauge .center{position:absolute; top:0; bottom:0; left:50%; width:2px; background:#fff; opacity:.6;}
+  .gauge .marker{position:absolute; top:2px; bottom:2px; width:8px; margin-left:-4px; border-radius:4px; background:var(--blue); left:50%; transition:left .05s linear;}
+  .gauge-labels{display:flex; justify-content:space-between; font-size:11px; color:var(--sub); margin-top:4px;}
+  .cents{font-size:20px; font-weight:700; text-align:center; margin-top:6px; min-height:28px;}
+  .row{display:flex; gap:8px; flex-wrap:wrap;}
+  .row button{flex:1; padding:12px 6px; font-size:15px; font-weight:700; background:#2a3442; color:var(--text); min-width:70px;}
+  .row button.sel{background:var(--accent); color:#201600;}
+  .scale-btns{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px;}
+  .scale-btns button{padding:12px 4px; font-size:16px; font-weight:700; background:#2a3442; color:var(--text);}
+  .scale-btns button.sel{background:var(--blue); color:#fff;}
+  .target-note{text-align:center; font-size:20px; font-weight:800; margin:8px 0 2px;}
+  .hold-wrap{height:10px; background:#0b0e12; border-radius:5px; overflow:hidden; margin-top:10px;}
+  .hold-bar{height:100%; width:0%; background:var(--ok); transition:width .1s linear;}
+  .score{text-align:center; font-size:15px; margin-top:10px; color:var(--accent); font-weight:700; min-height:22px;}
+  .small{font-size:12px; color:var(--sub); line-height:1.7;}
+  select{font-family:inherit; font-size:15px; padding:10px; border-radius:10px; background:#2a3442; color:var(--text); border:none; width:100%;}
+  label{font-size:13px; color:var(--sub); display:block; margin-bottom:6px;}
+</style>
+</head>
+<body>
+<h1>🎤 ピッチトレーニング</h1>
+<p class="lead">マイクで自分の声の高さを測って、音程のズレを目で見ながら直す練習ツールです。音声は端末の中だけで処理され、外に送信されることはありません。</p>
+
+<div class="card">
+  <button id="micBtn" class="big-btn">🎙 マイクを開始</button>
+  <div id="micStatus" class="status">マイクを開始すると、あなたの声の高さが表示されます。</div>
+  <div class="note-name" id="noteName">―</div>
+  <div class="note-sub" id="noteSub">（声を出すと音名と周波数が出ます）</div>
+  <canvas id="trace" width="520" height="110"></canvas>
+  <div class="gauge-wrap">
+    <div class="gauge"><div class="zone"></div><div class="center"></div><div class="marker" id="gaugeMarker"></div></div>
+    <div class="gauge-labels"><span>低い −100</span><span>ぴったり</span><span>高い +100</span></div>
+  </div>
+  <div class="cents" id="centsText">―</div>
+  <p class="small">上のゲージは「一番近い音」からどれだけズレているか（セント）です。真ん中の緑の範囲（±25セント）に入ると安定しやすい音程です。まずは自由に声を出して、自分の声の高さの動きを見てみてください。</p>
+</div>
+
+<div class="card">
+  <h2>🎯 音当て練習</h2>
+  <label for="baseSel">「ド」の高さ（自分の声に合うところを選んでください）</label>
+  <select id="baseSel">
+    <option value="110.00">低め（ド＝110Hz）</option>
+    <option value="130.81" selected>ふつう（ド＝130.8Hz）</option>
+    <option value="146.83">高め（ド＝146.8Hz）</option>
+  </select>
+  <div class="target-note" id="targetText">お題：―</div>
+  <div class="row" style="margin-top:8px;">
+    <button id="playTarget">🔊 お題を聞く</button>
+    <button id="randomBtn">🎲 ランダムで出題</button>
+  </div>
+  <div class="scale-btns" id="scaleBtns"></div>
+  <div class="hold-wrap"><div class="hold-bar" id="holdBar"></div></div>
+  <div class="score" id="scoreText"></div>
+  <p class="small">お題の音を聞いて、同じ高さの声を出してください。ズレが±25セント以内で少し保てると「合った！」になります。喉に力を入れず、音声ガイドで練習した「お腹から息を流す」感覚でどうぞ。痛みや違和感があったら休んでください。</p>
+</div>
+
+<p class="small">使い方のコツ：静かな場所で、スマホを口から20〜30cm離すと測りやすいです。声が小さいとうまく測れないことがあります。うまく反応しない時は、少し声を張って「あー」と伸ばしてみてください。</p>
+
+<script>
+"use strict";
+// === PITCH CORE START ===
+// 自己相関による基本周波数推定。buf: Float32Array(-1..1), sampleRate: number
+// 戻り値: 周波数(Hz)。無声・無音に近い場合は -1。
+function detectPitch(buf, sampleRate){
+  var SIZE = buf.length;
+  var rms = 0;
+  for (var i = 0; i < SIZE; i++){ var v = buf[i]; rms += v * v; }
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.012) return -1;
+  var r1 = 0, r2 = SIZE - 1;
+  var thres = 0.2;
+  for (var i = 0; i < SIZE / 2; i++){ if (Math.abs(buf[i]) < thres){ r1 = i; break; } }
+  for (var i = 1; i < SIZE / 2; i++){ if (Math.abs(buf[SIZE - i]) < thres){ r2 = SIZE - i; break; } }
+  var b = buf.slice(r1, r2);
+  var N = b.length;
+  if (N < 64) return -1;
+  var corr = new Array(N).fill(0);
+  for (var lag = 0; lag < N; lag++){
+    var s = 0;
+    for (var j = 0; j < N - lag; j++){ s += b[j] * b[j + lag]; }
+    corr[lag] = s;
+  }
+  var d = 0;
+  while (d < N - 1 && corr[d] > corr[d + 1]) d++;
+  var maxVal = -1, maxPos = -1;
+  for (var i = d; i < N; i++){ if (corr[i] > maxVal){ maxVal = corr[i]; maxPos = i; } }
+  if (maxPos <= 0) return -1;
+  var T0 = maxPos;
+  // 放物線補間で精度を上げる
+  var x1 = corr[T0 - 1] || 0, x2 = corr[T0], x3 = corr[T0 + 1] || 0;
+  var a = (x1 + x3 - 2 * x2) / 2;
+  var bb = (x3 - x1) / 2;
+  if (a) T0 = T0 - bb / (2 * a);
+  var freq = sampleRate / T0;
+  if (freq < 55 || freq > 650) return -1;
+  return freq;
+}
+// 周波数→MIDIノート番号（小数つき）
+function freqToMidi(f){ return 69 + 12 * Math.log2(f / 440); }
+// 目標周波数との差（セント）
+function centsOff(freq, target){ return 1200 * Math.log2(freq / target); }
+// === PITCH CORE END ===
+
+var NOTE_DOREMI = ["ド","ド♯","レ","レ♯","ミ","ファ","ファ♯","ソ","ソ♯","ラ","ラ♯","シ"];
+var NOTE_EN = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+function noteLabel(freq){
+  var m = Math.round(freqToMidi(freq));
+  var name = NOTE_DOREMI[((m % 12) + 12) % 12];
+  var en = NOTE_EN[((m % 12) + 12) % 12];
+  var oct = Math.floor(m / 12) - 1;
+  return { name: name, en: en, oct: oct, midi: m };
+}
+function nearestFreq(freq){
+  var m = Math.round(freqToMidi(freq));
+  return 440 * Math.pow(2, (m - 69) / 12);
+}
+
+var audioCtx = null, analyser = null, micStream = null, running = false;
+var bufArr = null;
+var history = []; // {freq, t}
+var recentFreqs = [];
+var targetFreq = null, targetName = "";
+var holdMs = 0, lastTick = 0, score = 0, solvedCurrent = false;
+
+var micBtn = document.getElementById("micBtn");
+var micStatus = document.getElementById("micStatus");
+var noteNameEl = document.getElementById("noteName");
+var noteSubEl = document.getElementById("noteSub");
+var centsText = document.getElementById("centsText");
+var gaugeMarker = document.getElementById("gaugeMarker");
+var canvas = document.getElementById("trace");
+var ctx2d = canvas.getContext("2d");
+var targetText = document.getElementById("targetText");
+var holdBar = document.getElementById("holdBar");
+var scoreText = document.getElementById("scoreText");
+var baseSel = document.getElementById("baseSel");
+
+var SCALE = [
+  {label:"ド", semi:0},{label:"レ", semi:2},{label:"ミ", semi:4},{label:"ファ", semi:5},
+  {label:"ソ", semi:7},{label:"ラ", semi:9},{label:"シ", semi:11},{label:"ド（高）", semi:12}
+];
+var scaleBtnsEl = document.getElementById("scaleBtns");
+SCALE.forEach(function(s, idx){
+  var b = document.createElement("button");
+  b.textContent = s.label;
+  b.addEventListener("click", function(){ setTarget(idx, true); });
+  scaleBtnsEl.appendChild(b);
+});
+function baseFreq(){ return parseFloat(baseSel.value); }
+function setTarget(idx, play){
+  var s = SCALE[idx];
+  targetFreq = baseFreq() * Math.pow(2, s.semi / 12);
+  targetName = s.label;
+  solvedCurrent = false; holdMs = 0;
+  targetText.textContent = "お題：" + s.label + "（" + targetFreq.toFixed(1) + "Hz）";
+  Array.prototype.forEach.call(scaleBtnsEl.children, function(c, i){
+    c.classList.toggle("sel", i === idx);
+  });
+  scoreText.textContent = "";
+  if (play) playTone(targetFreq);
+}
+document.getElementById("randomBtn").addEventListener("click", function(){
+  var idx = Math.floor(Math.random() * SCALE.length);
+  setTarget(idx, true);
+});
+document.getElementById("playTarget").addEventListener("click", function(){
+  if (targetFreq) playTone(targetFreq);
+  else setTarget(0, true);
+});
+baseSel.addEventListener("change", function(){
+  if (targetFreq){
+    // 現在のお題を保ったまま基準だけ変える
+    var idx = SCALE.findIndex(function(s){ return s.label === targetName; });
+    if (idx >= 0) setTarget(idx, false);
+  }
+});
+
+var toneCtx = null;
+function playTone(freq){
+  try{
+    if (!toneCtx) toneCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (toneCtx.state === "suspended") toneCtx.resume();
+    var t = toneCtx.currentTime;
+    var osc = toneCtx.createOscillator();
+    var gain = toneCtx.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.22, t + 0.05);
+    gain.gain.setValueAtTime(0.22, t + 1.1);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    osc.connect(gain); gain.connect(toneCtx.destination);
+    osc.start(t); osc.stop(t + 1.45);
+  }catch(e){ /* 音が出ない環境では無視 */ }
+}
+
+micBtn.addEventListener("click", function(){
+  if (running){ stopMic(); } else { startMic(); }
+});
+function startMic(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    micStatus.textContent = "このブラウザではマイクが使えませんでした。SafariやChromeで開いてみてください。";
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
+    .then(function(stream){
+      micStream = stream;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var src = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      bufArr = new Float32Array(analyser.fftSize);
+      src.connect(analyser);
+      running = true;
+      micBtn.textContent = "⏹ マイクを止める";
+      micBtn.classList.add("on");
+      micStatus.textContent = "計測中…声を出してみてください。";
+      history = []; recentFreqs = []; lastTick = performance.now();
+      requestAnimationFrame(loop);
+    })
+    .catch(function(err){
+      micStatus.textContent = "マイクの許可が得られませんでした。ブラウザの設定でマイクを許可してください。（" + err.name + "）";
+    });
+}
+function stopMic(){
+  running = false;
+  if (micStream){ micStream.getTracks().forEach(function(t){ t.stop(); }); micStream = null; }
+  if (audioCtx){ audioCtx.close(); audioCtx = null; }
+  micBtn.textContent = "🎙 マイクを開始";
+  micBtn.classList.remove("on");
+  micStatus.textContent = "停止しました。";
+  noteNameEl.textContent = "―";
+  noteSubEl.textContent = "（声を出すと音名と周波数が出ます）";
+  centsText.textContent = "―";
+}
+
+function loop(now){
+  if (!running) return;
+  var dt = now - lastTick; lastTick = now;
+  analyser.getFloatTimeDomainData(bufArr);
+  var freq = detectPitch(bufArr, audioCtx.sampleRate);
+  var dispFreq = -1;
+  if (freq > 0){
+    recentFreqs.push(freq);
+    if (recentFreqs.length > 5) recentFreqs.shift();
+    var sorted = recentFreqs.slice().sort(function(a,b){ return a - b; });
+    dispFreq = sorted[Math.floor(sorted.length / 2)];
+  } else {
+    recentFreqs = [];
+  }
+  var t = now / 1000;
+  history.push({ f: dispFreq, t: t });
+  while (history.length && history[0].t < t - 6) history.shift();
+
+  if (dispFreq > 0){
+    var lab = noteLabel(dispFreq);
+    noteNameEl.textContent = lab.name;
+    noteSubEl.textContent = lab.en + lab.oct + " ・ " + dispFreq.toFixed(1) + " Hz";
+    var cents = centsOff(dispFreq, nearestFreq(dispFreq));
+    var clamped = Math.max(-100, Math.min(100, cents));
+    gaugeMarker.style.left = (50 + clamped / 2) + "%";
+    gaugeMarker.style.background = Math.abs(cents) <= 25 ? "var(--ok)" : "var(--blue)";
+    centsText.textContent = (cents >= 0 ? "+" : "") + cents.toFixed(0) + " セント" + (Math.abs(cents) <= 25 ? "（合っています）" : (cents > 0 ? "（高め）" : "（低め）"));
+    centsText.style.color = Math.abs(cents) <= 25 ? "var(--ok)" : "var(--text)";
+    // 音当ての合否
+    if (targetFreq && !solvedCurrent){
+      var tc = centsOff(dispFreq, targetFreq);
+      if (Math.abs(tc) <= 25){
+        holdMs += dt;
+        if (holdMs >= 600){
+          solvedCurrent = true; score++;
+          scoreText.textContent = "🎉 合った！（累計 " + score + " 回）次のお題をどうぞ";
+          playTone(880);
+        }
+      } else {
+        holdMs = Math.max(0, holdMs - dt * 1.5);
+      }
+      holdBar.style.width = Math.min(100, holdMs / 600 * 100) + "%";
+    }
+  } else {
+    noteNameEl.textContent = "―";
+    noteSubEl.textContent = "（声が検出できません…もう少し大きめの声で）";
+    centsText.textContent = "―";
+    holdMs = Math.max(0, holdMs - dt * 1.5);
+    if (targetFreq) holdBar.style.width = Math.min(100, holdMs / 600 * 100) + "%";
+  }
+  drawTrace(t);
+  requestAnimationFrame(loop);
+}
+
+function drawTrace(nowT){
+  var W = canvas.width, H = canvas.height;
+  ctx2d.clearRect(0, 0, W, H);
+  // 基準線（ドレミの各音）: 表示範囲は現在の履歴の中央あたりに追随
+  var freqs = history.filter(function(h){ return h.f > 0; }).map(function(h){ return h.f; });
+  var center = freqs.length ? freqs[freqs.length - 1] : 160;
+  var lo = center / Math.pow(2, 7 / 12), hi = center * Math.pow(2, 7 / 12);
+  function yOf(f){ return H - (Math.log2(f / lo) / Math.log2(hi / lo)) * H; }
+  ctx2d.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx2d.fillStyle = "rgba(255,255,255,0.45)";
+  ctx2d.font = "10px sans-serif";
+  ctx2d.lineWidth = 1;
+  var baseMidi = Math.round(freqToMidi(lo));
+  for (var m = baseMidi; m < baseMidi + 16; m++){
+    var f = 440 * Math.pow(2, (m - 69) / 12);
+    if (f < lo || f > hi) continue;
+    var y = yOf(f);
+    ctx2d.beginPath(); ctx2d.moveTo(0, y); ctx2d.lineTo(W, y); ctx2d.stroke();
+    ctx2d.fillText(NOTE_DOREMI[((m % 12) + 12) % 12], 4, y - 3);
+  }
+  if (targetFreq && targetFreq >= lo && targetFreq <= hi){
+    ctx2d.strokeStyle = "rgba(255,176,32,0.8)";
+    ctx2d.beginPath(); ctx2d.moveTo(0, yOf(targetFreq)); ctx2d.lineTo(W, yOf(targetFreq)); ctx2d.stroke();
+  }
+  ctx2d.strokeStyle = "#4da3ff";
+  ctx2d.lineWidth = 2;
+  ctx2d.beginPath();
+  var started = false;
+  history.forEach(function(h){
+    var x = W - (nowT - h.t) / 6 * W;
+    if (h.f <= 0){ started = false; return; }
+    var y = yOf(h.f);
+    if (!started){ ctx2d.moveTo(x, y); started = true; } else { ctx2d.lineTo(x, y); }
+  });
+  ctx2d.stroke();
+}
+</script>
+</body>
+</html>
