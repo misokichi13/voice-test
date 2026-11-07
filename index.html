@@ -187,8 +187,9 @@
         return;
       }
 
-      const textToAnalyze = speechBuffer.length > 0 ? speechBuffer.join("\n") : "[テスト発話] こんばんは、今日も配信の調子を確認しています。よろしくお願いします。";
-      const recentText = textToAnalyze;
+      // 解析に失敗したときに発話が消えないよう、バッファは成功するまで保持する（失敗時は catch で戻す）
+      const backupBuffer = speechBuffer;
+      const recentText = backupBuffer.length > 0 ? backupBuffer.join("\n") : "[テスト発話] こんばんは、今日も配信の調子を確認しています。よろしくお願いします。";
       speechBuffer = [];
 
       updateAdviceBox("default", "⏳ 分析中...", "AIが直近の発話をチェックしています...");
@@ -238,6 +239,7 @@ ${recentText}
           throw new Error("AIからの応答形式が予期せぬものです。");
         }
       } catch (err) {
+        speechBuffer = backupBuffer.concat(speechBuffer); // 失敗した分の発話を次回の判定に持ち越す
         console.error("Gemini解析エラー:", err);
         updateAdviceBox("red", "❌ エラー発生", err.message);
       }
